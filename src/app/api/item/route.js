@@ -1,63 +1,63 @@
 import corsHeaders from "@/lib/cors";
 import { getClientPromise } from "@/lib/mongodb";
-import { headers } from "next/headers";
 import { NextResponse } from "next/server";
+
 export async function OPTIONS(req) {
     return new Response(null, {
         status: 200,
         headers: corsHeaders,
     });
 }
-export async function GET() {
+
+export async function GET(req) {
+    const { searchParams } = new URL(req.url);
+    const page = parseInt(searchParams.get("page")) || 1;
+    const limit = 10; 
+    const skip = (page - 1) * limit;
+
     try {
         const client = await getClientPromise();
         const db = client.db("wad-01");
-        const result = await db.collection("item").find({}).toArray();
-        console.log("==> result", result);
+
+        // 2. Use .skip() and .limit() for the "pagination set" requirement
+        const result = await db.collection("item")
+            .find({})
+            .skip(skip)
+            .limit(limit)
+            .toArray();
+
         return NextResponse.json(result, {
             headers: corsHeaders
         });
-    }
-    catch (exception) {
-        console.log("exception", exception.toString());
-        const errorMsg = exception.toString();
-        return NextResponse.json({
-            message: errorMsg
-        }, {
+    } catch (exception) {
+        return NextResponse.json({ message: exception.toString() }, {
             status: 400,
             headers: corsHeaders
-        })
+        });
     }
 }
+
 export async function POST(req) {
     const data = await req.json();
-    const itemName = data.name;
-    const itemPrice = data.price;
-    const itemCategory = data.category;
     try {
         const client = await getClientPromise();
         const db = client.db("wad-01");
+        
         const result = await db.collection("item").insertOne({
-            itemName: itemName,
-            itemCategory: itemCategory,
-            itemPrice: itemPrice,
-            status: "ACTIVE"
+            itemName: data.name,
+            itemCategory: data.category,
+            itemPrice: data.price,
+            status: "ACTIVE" 
         });
-        return NextResponse.json({
-            id: result.insertedId
-        }, {
+
+        return NextResponse.json({ id: result.insertedId }, {
             status: 200,
             headers: corsHeaders
-        })
-    }
-    catch (exception) {
-        console.log("exception", exception.toString());
-        const errorMsg = exception.toString();
-        return NextResponse.json({
-            message: errorMsg
-        }, {
+        });
+    } catch (exception) {
+        return NextResponse.json({ message: exception.toString() }, {
             status: 400,
             headers: corsHeaders
-        })
+        });
     }
-} 
+}
